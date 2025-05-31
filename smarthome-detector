@@ -1,0 +1,74 @@
+#define BLYNK_TEMPLATE_ID "TMPL6XTrHKHiu"
+#define BLYNK_TEMPLATE_NAME "smarthome"
+#define BLYNK_AUTH_TOKEN "wi5oooU3wL9sPia57yEUK4Mp2pWIgalt"
+
+#include <WiFi.h>
+#include <BlynkSimpleEsp32.h>
+
+char auth[] = BLYNK_AUTH_TOKEN;
+char ssid[] = "Wokwi-GUEST";
+char pass[] = "";
+
+const int LDRPin = 34;
+const int trigPin = 5;
+const int echoPin = 18;
+const int ledPin = 25;
+
+const int LDRThreshold = 300;
+const int distanceThreshold = 50;
+
+void setup() {
+  Serial.begin(115200);
+  Blynk.begin(auth, ssid, pass);
+
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+  pinMode(ledPin, OUTPUT);
+}
+
+long readUltrasonicDistance() {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  long duration = pulseIn(echoPin, HIGH);
+  long distance = duration * 0.034 / 2;
+  return distance;
+}
+
+void loop() {
+  Blynk.run();
+
+  int ldrValue = analogRead(LDRPin);
+  long distance = readUltrasonicDistance();
+
+  String cahayaStatus = (ldrValue < LDRThreshold) ? "Gelap" : "Terang";
+  String jarakStatus = (distance > 0 && distance <= distanceThreshold) ? "Dekat" : "Jauh";
+
+  Blynk.virtualWrite(V0, distance); // Gauge Jarak
+  Blynk.virtualWrite(V4, "Cahaya: " + String(ldrValue) + " (" + cahayaStatus + ")\nJarak: " + String(distance) + " cm (" + jarakStatus + ")");
+
+  Serial.print("LDR: ");
+  Serial.print(ldrValue);
+  Serial.print(" | Jarak: ");
+  Serial.print(distance);
+  Serial.print(" | Status: ");
+  Serial.print(cahayaStatus);
+  Serial.print(" & ");
+  Serial.println(jarakStatus);
+
+  if (ldrValue < LDRThreshold && distance > 0 && distance <= distanceThreshold) {
+    digitalWrite(ledPin, HIGH);
+    Blynk.virtualWrite(V2, 255); // LED indikator ON
+    Blynk.virtualWrite(V1, "Alarm AKTIF");
+    Blynk.logEvent("gerakan_terdeteksi", "Gerakan Terdeteksi Dalam Gelap!");
+  } else {
+    digitalWrite(ledPin, LOW);
+    Blynk.virtualWrite(V2, 0);   // LED indikator OFF
+    Blynk.virtualWrite(V1, "Alarm OFF");
+  }
+
+  delay(300);
+}
